@@ -10,17 +10,21 @@
 
 #define BUF_SIZE 2048
 
+void processCmdLine(cmdLine *pCmdLine);
+void handleExit(cmdLine *pCmdLine, int exitCode);
+void handleCD(cmdLine *pCmdLine);
+
 void execute(cmdLine *pCmdLine);
 void waitForChild(int pid);
 void debugger();
 
 bool _debug = false;
 int _childPID = 0;
-char *_currCommand = NULL;
+char *_curCmd = NULL;
 
 int main(int argc, char **argv)
 {
-    char curDir[PATH_MAX], input[BUF_SIZE], inputCheck[BUF_SIZE];
+    char input[BUF_SIZE];
     cmdLine *pCmdLine = NULL;
 
     for (int i = 1; i < argc; i++)
@@ -32,38 +36,64 @@ int main(int argc, char **argv)
         else
         {
             printf("Invalid argument: %s\n", argv[i]);
-            exit(1);
+            handleExit(pCmdLine, 1);
         }
     }
 
-    getcwd(curDir, PATH_MAX);
     while (true)
     {
-        printf("%s$ ", curDir);
+        printf("myshell:%s# ",getcwd(NULL, PATH_MAX));
         fgets(input, BUF_SIZE, stdin);
-        sscanf(input, "%s", inputCheck);
-        if (strcmp(inputCheck, "quit") == 0 || strcmp(inputCheck, "exit") == 0)
-        {
-            freeCmdLines(pCmdLine);
-            exit(0);
-        }
         pCmdLine = parseCmdLines(input);
+        processCmdLine(pCmdLine);
+    }
+}
+
+void processCmdLine(cmdLine *pCmdLine)
+{
+    _curCmd = pCmdLine->arguments[0];
+    if (strcmp(_curCmd, "quit") == 0 || strcmp(_curCmd, "exit") == 0)
+    {
+        handleExit(pCmdLine, 0);
+    }
+    else if (strcmp(_curCmd, "cd") == 0)
+    {
+        handleCD(pCmdLine);
+    }
+    else
+    {
         execute(pCmdLine);
     }
 }
 
 void execute(cmdLine *pCmdLine)
 {
-    _currCommand = pCmdLine->arguments[0];
     if (!(_childPID = fork()))
     {
-        execvp(_currCommand, pCmdLine->arguments);
-        perror("Could not execute the command");
-        freeCmdLines(pCmdLine);
-        exit(1);
+        execvp(_curCmd, pCmdLine->arguments);
+        perror("Could not execute command");
+        handleExit(pCmdLine, 1);
     }
     debugger();
-    waitForChild(_childPID);
+    if (pCmdLine->blocking)
+    {
+        waitForChild(_childPID);
+    }
+}
+
+void handleExit(cmdLine *pCmdLine, int exitCode)
+{
+    freeCmdLines(pCmdLine);
+    exit(exitCode);
+}
+
+void handleCD(cmdLine *pCmdLine)
+{
+    int result = chdir(pCmdLine->arguments[1]);
+    if (result == -1)
+    {
+        perror("Could not change directory");
+    }
 }
 
 void waitForChild(int pid)
@@ -75,6 +105,6 @@ void debugger()
 {
     if (_debug)
     {
-        fprintf(stderr, "Currnet command: %s\nProccess ID: %i\n", _currCommand, _childPID);
+        fprintf(stderr, "Currnet command: %s\nProccess ID: %i\n", _curCmd, _childPID);
     }
 }
