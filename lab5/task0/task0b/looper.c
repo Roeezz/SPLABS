@@ -23,13 +23,13 @@ int main(int argc, char **argv)
 void sigHandler(int signum)
 {
 	char *signame = strsignal(signum);
-	printf("Recieved %s\n", signame);
+	printf("Looper %s\n", signame);
 	signal(signum, SIG_DFL);
-	if (signum && SIGTSTP)
+	if (signum == SIGTSTP)
 	{
 		signal(SIGCONT, sigHandler);
 	}
-	else if (signum && SIGCONT)
+	else if (signum == SIGCONT)
 	{
 		signal(SIGTSTP, sigHandler);
 	}
