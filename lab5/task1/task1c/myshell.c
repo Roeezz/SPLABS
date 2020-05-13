@@ -56,6 +56,10 @@ void processCmdLine(cmdLine *pCmdLine)
     {
         handleExit(pCmdLine, 0);
     }
+    else if (strcmp(_curCmd, "cd") == 0)
+    {
+        handleCD(pCmdLine);
+    }
     else
     {
         execute(pCmdLine);
@@ -71,6 +75,10 @@ void execute(cmdLine *pCmdLine)
         handleExit(pCmdLine, 1);
     }
     debugger();
+    if (pCmdLine->blocking)
+    {
+        waitForChild(_childPID);
+    }
 }
 
 void handleExit(cmdLine *pCmdLine, int exitCode)
@@ -86,6 +94,11 @@ void handleCD(cmdLine *pCmdLine)
     {
         perror("Could not change directory");
     }
+}
+
+void waitForChild(int pid)
+{
+    waitpid(pid, NULL, 0);
 }
 
 void debugger()

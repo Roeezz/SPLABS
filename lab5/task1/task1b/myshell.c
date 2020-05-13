@@ -56,6 +56,10 @@ void processCmdLine(cmdLine *pCmdLine)
     {
         handleExit(pCmdLine, 0);
     }
+    else if (strcmp(_curCmd, "cd") == 0)
+    {
+        handleCD(pCmdLine);
+    }
     else
     {
         execute(pCmdLine);
