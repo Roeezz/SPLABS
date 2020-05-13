@@ -95,7 +95,7 @@ void printCWD()
 void processCmdLine(process **process_list, cmdLine *pCmdLine)
 {
     char *command = pCmdLine->arguments[0];
-    if (strcmp(command, "quit") == 0 || strcmp(command, "exit") == 0)
+    if (strcmp(command, "quit") == 0)
     {
         freeLine(pCmdLine);
         handleExit(process_list, 0);

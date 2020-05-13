@@ -96,7 +96,7 @@ void printCWD()
 void processCmdLine(process **process_list, cmdLine *pCmdLine)
 {
     char *command = pCmdLine->arguments[0];
-    if (strcmp(command, "quit") == 0 || strcmp(command, "exit") == 0)
+    if (strcmp(command, "quit") == 0)
     {
         freeLine(pCmdLine);
         handleExit(process_list, 0);
@@ -198,7 +198,7 @@ void printProcessList(process **process_list)
     {
         command = proc->cmd->arguments[0];
         status = getStatusName(proc->status);
-        printf("|%d)     %d  |  %s     |     %s: ", index, proc->pid, status, command);
+        printf("|%d)      %d  |  %s     |     %s: ", index, proc->pid, status, command);
         printArgs(proc);
         puts("");
         proc = proc->next;
@@ -287,7 +287,8 @@ void sendSignal(char *signame, int pid)
     {
         killRes = kill(pid, SIGCONT);
     }
-    if(killRes < 0){
+    if (killRes < 0)
+    {
         perror("Could not send signal");
     }
     else

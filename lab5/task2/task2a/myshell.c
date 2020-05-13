@@ -81,14 +81,14 @@ int main(int argc, char **argv)
 void printCWD()
 {
     char *cwd = getcwd(NULL, PATH_MAX);
-    printf("myshell:%s# ", cwd);
+    printf("myshell:%s#> ", cwd);
     free(cwd);
 }
 
 void processCmdLine(process **process_list, cmdLine *pCmdLine)
 {
     char *command = pCmdLine->arguments[0];
-    if (strcmp(command, "quit") == 0 || strcmp(command, "exit") == 0)
+    if (strcmp(command, "quit") == 0)
     {
         handleExit(process_list, pCmdLine, 0);
     }

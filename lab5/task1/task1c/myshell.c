@@ -52,7 +52,7 @@ int main(int argc, char **argv)
 void processCmdLine(cmdLine *pCmdLine)
 {
     _curCmd = pCmdLine->arguments[0];
-    if (strcmp(_curCmd, "quit") == 0 || strcmp(_curCmd, "exit") == 0)
+    if (strcmp(_curCmd, "quit") == 0)
     {
         handleExit(pCmdLine, 0);
     }
