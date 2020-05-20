@@ -15,6 +15,10 @@
 #define RUNNING 1
 #define SUSPENDED 0
 
+#define REDCT_INPUT 0
+#define REDCT_OUTPUT 1
+
+
 typedef struct process
 {
     cmdLine *cmd;         /* the parsed command line*/
@@ -61,9 +65,10 @@ void processDtor(process *this);
 //var functions
 void addMyShellVar(char *name, char *value, myShellVar **varList);
 void freeVarList(myShellVar **varList);
-myShellVar *getVar(char *name, myShellVar **varList);
+myShellVar *getVar(const char *name, myShellVar **varList);
 void printVarList(myShellVar **varList);
 int replaceMyShellVars(cmdLine *pCmdLine, myShellVar **varList);
+void replaceIORedirect(cmdLine *pCmdLine, myShellVar **varList);
 
 //myShellVar rule of 5
 myShellVar *myShellVarCREATE(char *name, char *value, myShellVar *next);
@@ -81,7 +86,7 @@ pid_t waitForChild(pid_t pid);
 
 //string functions
 char *strClone(char *str);
-char *join(char *const *strArr, int start, int end, const char *concator);
+char *join(char *const *strArr, int start, int end, const char *seperator);
 char *concat(char *str1, char *str2);
 
 //debugging
@@ -167,12 +172,13 @@ void handleExecute(process **process_list, cmdLine *pCmdLine, myShellVar **varLi
     pid_t pid = 0;
     int readfd = -1;
     cmdLine *cur = pCmdLine;
-    if (replaceMyShellVars(pCmdLine, varList) < 0)
-    {
-        return;
-    }
     while (cur->next != NULL)
     {
+        if (replaceMyShellVars(cur, varList) < 0)
+        {
+            freeLine(pCmdLine);
+            return;
+        }
         readfd = executePipes(process_list, cur, varList, readfd);
         if (readfd < 0)
         {
@@ -180,6 +186,11 @@ void handleExecute(process **process_list, cmdLine *pCmdLine, myShellVar **varLi
             return;
         }
         cur = cur->next;
+    }
+    if (replaceMyShellVars(cur, varList) < 0)
+    {
+        freeLine(pCmdLine);
+        return;
     }
     if (!(pid = fork()))
     {
@@ -199,6 +210,7 @@ void handleExecute(process **process_list, cmdLine *pCmdLine, myShellVar **varLi
         addProcess(process_list, cur, pid);
     }
 }
+
 int executePipes(process **process_list, cmdLine *pCmdLine, myShellVar **varList, int readfd)
 {
     pid_t pid;
@@ -365,7 +377,7 @@ void freeVarList(myShellVar **varList)
     }
 }
 
-myShellVar *getVar(char *name, myShellVar **varList)
+myShellVar *getVar(const char *name, myShellVar **varList)
 {
     myShellVar *cur = *varList;
     while (cur != NULL)
@@ -660,14 +672,14 @@ char *strClone(char *str)
     return strcpy(calloc(strlen(str) + 1, sizeof(char)), str);
 }
 
-char *join(char *const *strArr, int start, int end, const char *concator)
+char *join(char *const *strArr, int start, int end, const char *seperator)
 {
     char *acc = strClone(strArr[start]);
-    for (int i = start; i < end; i++)
+    for (int i = start + 1; i < end; i++)
     {
-        acc = realloc(acc, strlen(acc) + strlen(concator) + strlen(strArr[i]) + 1);
-        strcat(acc, concator);
-        strcat(acc, strArr[i]);
+        acc = realloc(acc, strlen(acc) + strlen(seperator) + strlen(strArr[i]) + 1);
+        strncat(acc, seperator, strlen(seperator));
+        strncat(acc, strArr[i], strlen(strArr[i]));
     }
     return acc;
 }
@@ -676,5 +688,5 @@ char *concat(char *str1, char *str2)
 {
     char *acc = strClone(str1);
     acc = realloc(acc, strlen(str1) + strlen(str2) + 1);
-    return strcat(acc, str2);
+    return strncat(acc, str2, strlen(str2));
 }
