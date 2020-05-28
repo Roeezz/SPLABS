@@ -1,5 +1,5 @@
 myshell: myshell.o LineParser.o
-	gcc -g -Wall -o myshell.exe myshell.o LineParser.o
+	gcc -g -Wall -o myshell.bin myshell.o LineParser.o
 
 myshell.o: myshell.c
 	gcc -g -Wall -c -o myshell.o myshell.c
@@ -10,4 +10,4 @@ LineParser.o: LineParser.c LineParser.h
 .PHONY: clean
 
 clean:
-	rm -f *.o myshell.exe
+	rm -f *.o myshell.bin

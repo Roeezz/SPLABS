@@ -1,5 +1,5 @@
 task2: task2.o LineParser.o
-	gcc -g -Wall -o task2.exe task2.o LineParser.o
+	gcc -g -Wall -o task2.bin task2.o LineParser.o
 
 task2.o: task2.c
 	gcc -g -Wall -c -o task2.o task2.c
@@ -10,4 +10,4 @@ LineParser.o: LineParser.c LineParser.h
 .PHONY: clean
 
 clean:
-	rm -f *.o task2.exe
+	rm -f *.o task2.bin

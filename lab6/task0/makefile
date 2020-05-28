@@ -1,7 +1,7 @@
-all: myPipe.exe
+all: myPipe.bin
 
-myPipe.exe: myPipe.o
-	gcc -g -Wall -o myPipe.exe myPipe.o
+myPipe.bin: myPipe.o
+	gcc -g -Wall -o myPipe.bin myPipe.o
 
 myPipe.o: myPipe.c
 	gcc -g -Wall -c -o myPipe.o myPipe.c
@@ -9,4 +9,4 @@ myPipe.o: myPipe.c
 .PHONY: clean
 
 clean: 
-	rm -f *.o myPipe.exe
+	rm -f *.o myPipe.bin

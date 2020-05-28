@@ -1,6 +1,6 @@
 all: flame
 flame: main.o util.o start.o
-	ld -m elf_i386 start.o main.o util.o -o flame.exe
+	ld -m elf_i386 start.o main.o util.o -o flame.bin
 main.o: main.c
 	gcc -m32 -Wall -ansi -c -nostdlib -fno-stack-protector  main.c -o main.o
 util.o: util.c
@@ -10,4 +10,4 @@ start.o: start.s
 	nasm -f elf32 start.s -o start.o
 .PHONY: clean
 clean: 
-	rm -f *.o flame.exe
+	rm -f *.o flame.bin

@@ -3,7 +3,7 @@
 
 # Binary Files
 *.bin
-*.exe
+*.bin
 
 # Object files
 *.o
@@ -33,7 +33,7 @@
 *.dylib
 
 # Executables
-*.exe
+*.bin
 *.out
 *.app
 *.i*86
