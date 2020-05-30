@@ -8,10 +8,19 @@
 #define NULL_CHAR '\0'
 #define INITIAL_SIZE 5
 #define BUF_SIZE 128
+#define printDebug(state, ...)                                                     \
+	if (state->debug_mode)                                                         \
+	{                                                                              \
+		fprintf(stderr, "\nDEBUG PRINT:\n");                                       \
+		fprintf(stderr, "####################################################\n"); \
+		fprintf(stderr, __VA_ARGS__);                                              \
+		fprintf(stderr, "####################################################\n"); \
+	}
 
 typedef struct state
 {
 	char debug_mode;
+	char display_mode;
 	char file_name[128];
 	int unit_size;
 	unsigned char mem_buf[10000];
@@ -26,23 +35,31 @@ typedef struct fun_desc
 	void (*func)(state *);
 } FunDesc;
 
+typedef struct PrintForm
+{
+	const char *format;
+	void *data;
+} PrintForm;
+
 bool menuRangeCheck(int index, int menu_size);
-void printDebug(state *prgmState);
 void printMenu(FunDesc menu[]);
 
 void toggelDebug(state *prgmState);
 void setUnitSize(state *prgmState);
 void setFileName(state *prgmState);
+void loadFile(state *prgmState);
 void quit(state *prgmState);
 
 int main(int argc, char **argv)
 {
 	int funcIndex = 0, menuSize = 0;
 	char input[BUF_SIZE], tmpBuf[BUF_SIZE];
-	state *prgmState = (state *)(calloc(1, sizeof(state)));
+	state *prgmState = (calloc(1, sizeof(state)));
+	prgmState->unit_size = 1;
 	FunDesc menu[] = {{"Toggle Degbug Mode", &toggelDebug},
 					  {"Set File Name", &setFileName},
 					  {"Set Unit Size", &setUnitSize},
+					  {"Load Into Memory", &loadFile},
 					  {"Quit", &quit},
 					  {NULL, NULL}};
 
@@ -52,8 +69,12 @@ int main(int argc, char **argv)
 	}
 	while (true)
 	{
-		if (prgmState->debug_mode)
-			printDebug(prgmState);
+		printDebug(prgmState,
+				   "-unit_size: %d\n-file_name: %s\n-mem_count: %zd\n-display_mode: %d\n",
+				   prgmState->unit_size,
+				   prgmState->file_name,
+				   prgmState->mem_count,
+				   prgmState->display_mode);
 		printMenu(menu);
 
 		printf("Please choose an action by number: ");
@@ -78,14 +99,6 @@ int main(int argc, char **argv)
 bool menuRangeCheck(int index, int menu_size)
 {
 	return index >= 0 && index < menu_size;
-}
-
-void printDebug(state *prgmState)
-{
-	fprintf(stderr, "DEBUG PRINT:\n");
-	fprintf(stderr, "-unit_size: %d\n", prgmState->unit_size);
-	fprintf(stderr, "-file_name: %s\n", prgmState->file_name);
-	fprintf(stderr, "-mem_count: %zd\n", prgmState->mem_count);
 }
 
 void printMenu(FunDesc menu[])
@@ -122,16 +135,50 @@ void setUnitSize(state *prgmState)
 	sscanf(tmpBuf, "%d", &unitSize);
 	if (unitSize == 1 || unitSize == 2 || unitSize == 4)
 	{
-		if (prgmState->debug_mode)
-		{
-			fprintf(stderr, "Debug: set size to %d\n", unitSize);
-		}
+		printDebug(prgmState, "Set size to %d\n", prgmState->unit_size);
 		prgmState->unit_size = unitSize;
 	}
 	else
 	{
 		fprintf(stderr, "Set Unit Size: Invalid unit size: %d\n", unitSize);
 	}
+}
+
+void loadFile(state *prgmState)
+{
+	FILE *file = NULL;
+	char tmpBuf[BUF_SIZE];
+	int location = 0, length = 0;
+
+	if (!prgmState->file_name)
+	{
+		fprintf(stderr, "Load File Into Memory: file name is null\n");
+		return;
+	}
+	if (!(file = fopen(prgmState->file_name, "r")))
+	{
+		perror("fopen");
+		return;
+	}
+
+	printf("Please enter location: \n");
+	fgets(tmpBuf, BUF_SIZE, stdin);
+	sscanf(tmpBuf, "%x", &location);
+
+	printf("Please enter length: \n");
+	fgets(tmpBuf, BUF_SIZE, stdin);
+	sscanf(tmpBuf, "%d", &length);
+	printDebug(prgmState,
+			   "Filename: %s\nLocations: %x\nLength: %d\n",
+			   prgmState->file_name,
+			   location,
+			   length);
+
+	fseek(file, location, SEEK_SET);
+	fread(prgmState->mem_buf, prgmState->unit_size, length, file);
+	prgmState->mem_count += length * prgmState->unit_size;
+	fclose(file);
+	printf("Loaded %d units into memory\n", length);
 }
 
 void quit(state *prgmState)
@@ -141,4 +188,3 @@ void quit(state *prgmState)
 	printf("Exiting. status: %d\n", exitStatus);
 	exit(exitStatus);
 }
-
