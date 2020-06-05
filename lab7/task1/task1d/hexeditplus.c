@@ -224,7 +224,7 @@ void memoryDisplay(state *prgmState)
 void print_units(FILE *output, unsigned char *buffer, int count, state *prgmState)
 {
 	char *end = buffer + prgmState->unit_size * count;
-	prgmState->display_mode ? printf("\nDECIMAL\n=======\n") : printf("\nHEXADECIMAL\n============\n");
+	prgmState->display_mode ? printf("\nHEXADECIMAL\n============\n") : printf("\nDECIMAL\n=======\n");
 	while (buffer < end)
 	{
 		//print ints
@@ -238,7 +238,7 @@ char *unit_to_format(int unit, state *prgmState)
 {
 	if (prgmState->display_mode)
 	{
-		static char *formats[] = {"%hhX\n", "%hX\n", "No such unit", "%X\n"};
+		static char *formats[] = {"%#hhX\n", "%#hX\n", "No such unit", "%#X\n"};
 		return formats[unit - 1];
 	}
 	else
