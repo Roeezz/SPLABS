@@ -75,7 +75,9 @@ char *getSpecNdxName(Elf32_Section shndx);
 void *getSection(void *file_start, Elf32_Off sh_offset);
 int getSecNEnt(Elf32_Shdr *sh);
 char *getSectionName(Elf32_Ehdr *header, void *file_start, Elf32_Shdr *sh);
-char *getSymbolName(Elf32_Ehdr *header, void *file_start, Elf32_Sym *symb);
+Elf32_Sym *getSymbol(Elf32_Ehdr *header, void *file_start, Elf32_Half ndx, Elf32_Word tabType);
+char *getSymbolName(Elf32_Ehdr *header, void *file_start, Elf32_Sym *symbol, Elf32_Word tabType);
+char *getRelTypeName(unsigned char type);
 
 int main(int argc, char **argv)
 {
@@ -242,13 +244,6 @@ void printSymbols(state *pstate)
         return;
     }
 
-    Elf32_Shdr *symtabSh = getFirstShByType(pstate->header, pstate->map_ptr, SHT_SYMTAB);
-    if (!symtabSh)
-    {
-        printf("Invalid ELF: no symbol table found");
-        return;
-    }
-    Elf32_Sym *symtab = getSection(pstate->map_ptr, symtabSh->sh_offset);
     int longest = getLongestShName(pstate->header, pstate->map_ptr, pstate->header->e_shnum);
 
     char *secName = NULL;
@@ -257,14 +252,20 @@ void printSymbols(state *pstate)
     Elf32_Sym *symbol = NULL;
     Elf32_Section shndx = 0;
 
+    Elf32_Shdr *symtabSh = getFirstShByType(pstate->header, pstate->map_ptr, SHT_SYMTAB);
+    if (!symtabSh)
+    {
+        printf("Invalid ELF: no symbol table found");
+        return;
+    }
     int symnum = getSecNEnt(symtabSh);
     printf("\nSYMBOL TABLE:\n");
     printf("  Num: %8s  Ndx %-*s Name\n", "Value", longest, "Section");
     for (int i = 0; i < symnum; i++)
     {
-        symbol = &symtab[i];
+        symbol = getSymbol(pstate->header, pstate->map_ptr, i, SHT_SYMTAB);
         shndx = symbol->st_shndx;
-        symName = getSymbolName(pstate->header, pstate->map_ptr, symbol);
+        symName = getSymbolName(pstate->header, pstate->map_ptr, symbol, SHT_SYMTAB);
         if (shndx == SHN_ABS || shndx == SHN_UNDEF)
         {
             secName = "";
@@ -290,18 +291,34 @@ void printReltabs(state *pstate)
     }
 
     int secOff = 0;
-
     Elf32_Shdr *reltabSh = getFirstShByTypeOff(pstate->header, pstate->map_ptr, SHT_REL, &secOff);
     Elf32_Rel *reltab = NULL;
+    char * reltabName = NULL;
     int relnum = 0;
+    Elf32_Word relInfo = 0;
+    Elf32_Word relOff = 0;
+    unsigned char relType = 0;
+    Elf32_Half symNdx = 0;
+    Elf32_Sym *symbol = NULL;
+    char *symName = NULL;
+
     while (reltabSh)
     {
         reltab = getSection(pstate->map_ptr, reltabSh->sh_offset);
         relnum = getSecNEnt(reltabSh);
-        printf(" Offset     Info\n");
+        reltabName = getSectionName(pstate->header, pstate->map_ptr, reltabSh);
+        printf("\nRelocation section '%s' at offset %#x contains %d entries:\n", reltabName, reltabSh->sh_offset, relnum);
+        printf(" Offset     Info    Type            Sym.Value  Sym. Name\n");
         for (int i = 0; i < relnum; i++)
         {
-            printf("%08x  %08x\n", reltab[i].r_offset, reltab[i].r_info);
+            relInfo = reltab[i].r_info;
+            relOff = reltab[i].r_offset;
+            relType = ELF32_R_TYPE(relInfo);
+            symNdx = ELF32_R_SYM(relInfo);
+            symbol = getSymbol(pstate->header, pstate->map_ptr, symNdx, SHT_DYNSYM);
+            symName = getSymbolName(pstate->header, pstate->map_ptr, symbol, SHT_DYNSYM);
+            printf("%08x  %08x %-14s   %08x   %s\n",
+            relOff, relInfo, getRelTypeName(relType), symbol->st_value, symName);
         }
         reltabSh = getFirstShByTypeOff(pstate->header, pstate->map_ptr, SHT_REL, &secOff);
     }
@@ -390,8 +407,8 @@ char *getShTypeName(Elf32_Word sh_type)
 /*Returns the first section with sh_type `type`, if it exists, NULL otherwise*/
 Elf32_Shdr *getFirstShByType(Elf32_Ehdr *header, void *file_start, Elf32_Word type)
 {
-    int ndx = 0;
-    return getFirstShByTypeOff(header, file_start, type, &ndx);
+    int pass = 0;
+    return getFirstShByTypeOff(header, file_start, type, &pass);
 }
 
 /*Starting at number in `offset`, returns the first section header with sh_type `type` if it exists, NULL otherwise.
@@ -487,10 +504,23 @@ char *getSectionName(Elf32_Ehdr *header, void *file_start, Elf32_Shdr *sh)
     char *sh_strtab = getSection(file_start, sh_strtabSh->sh_offset);
     return &sh_strtab[sh->sh_name];
 }
-/*Returns the name of `symbol`. If there is no symbol table returns NULL*/
-char *getSymbolName(Elf32_Ehdr *header, void *file_start, Elf32_Sym *symbol)
+
+Elf32_Sym *getSymbol(Elf32_Ehdr *header, void *file_start, Elf32_Half ndx, Elf32_Word tabType)
 {
-    Elf32_Shdr *symtabSh = getFirstShByType(header, file_start, SHT_SYMTAB);
+    Elf32_Shdr *symtabSh = getFirstShByType(header, file_start, tabType);
+    if (!symtabSh)
+    {
+        printf("Invalid ELF: no symbol table found");
+        return NULL;
+    }
+    Elf32_Sym *symtab = getSection(file_start, symtabSh->sh_offset);
+    return &symtab[ndx];
+}
+
+/*Returns the name of `symbol`. If there is no symbol table returns NULL*/
+char *getSymbolName(Elf32_Ehdr *header, void *file_start, Elf32_Sym *symbol, Elf32_Word tabType)
+{
+    Elf32_Shdr *symtabSh = getFirstShByType(header, file_start, tabType);
     if (!symtabSh)
     {
         printf("Invalid ELF: no symbol table found");
@@ -499,4 +529,12 @@ char *getSymbolName(Elf32_Ehdr *header, void *file_start, Elf32_Sym *symbol)
     Elf32_Shdr *sym_strtabSh = getShLink(header, file_start, symtabSh->sh_link);
     char *sym_strtab = getSection(file_start, sym_strtabSh->sh_offset);
     return &sym_strtab[symbol->st_name];
+}
+
+char *getRelTypeName(unsigned char type)
+{
+    char *relTypes[] = {"R_386_NONE", "R_386_32", "R_386_PC32", "R_386_GOT32",
+                        "R_386_PLT32", "R_386_COPY", "R_386_GLOB_DAT", "R_386_JMP_SLOT",
+                        "R_386_RELATIVE", "R_386_GOTOFF", "R_386_GOTPC"};
+    return relTypes[type];
 }
