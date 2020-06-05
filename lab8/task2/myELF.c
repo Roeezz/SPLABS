@@ -68,6 +68,7 @@ Elf32_Shdr *getSymtabSH(Elf32_Ehdr *header, void *file_start);
 Elf32_Shdr *getShLink(Elf32_Ehdr *header, void *file_start, Elf32_Word sh_link);
 Elf32_Shdr *getShArr(Elf32_Ehdr *header, void *file_start);
 int getLongestShName(Elf32_Shdr *sh_arr, char *sh_strtab, Elf32_Half shnum);
+char *getNdxName(Elf32_Section shndx);
 
 int main(int argc, char **argv)
 {
@@ -350,7 +351,7 @@ void printSymbols(state *pstate)
         if (shndx == SHN_ABS || shndx == SHN_UNDEF)
         {
             secName = "";
-            printf("  %3d: %08x  %3d %-*s %s\n",
+            printf("  %3d: %08x  %3s %-*s %s\n",
                i, symbol->st_value, getNdxName(shndx), longest, secName, symName);
         }
         else
