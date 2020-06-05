@@ -62,7 +62,7 @@ void quit(state *pstate);
 
 bool isElfFile(void *map_ptr);
 char *getEncoding(Elf32_Ehdr *header);
-char *getShType(Elf32_Shdr *sh);
+char *getShTypeName(Elf32_Word sh_type);
 
 int main(int argc, char **argv)
 {
@@ -72,6 +72,7 @@ int main(int argc, char **argv)
     pstate->page_size = sysconf(_SC_PAGE_SIZE);
     FunDesc menu[] = {{"Toggle Degbug Mode", &toggelDebug},
                       {"Examin ELF File", &examinElf},
+                      {"Print Section Names", &printSectionNames},
                       {"Quit", &quit},
                       {NULL, NULL}};
 
@@ -158,7 +159,7 @@ void examinElf(state *pstate)
         munmap(pstate->map_ptr, pstate->map_size);
         pstate->map_size = 0;
         pstate->file_name[0] = 0;
-        printf("Invalid file type\n");
+        printf("Invalid file sh_type\n");
         return;
     }
 
@@ -192,7 +193,7 @@ void quit(state *pstate)
     int exitStatus = pstate->ext_stat;
     if (pstate->map_size > 0)
         munmap(pstate->map_ptr, pstate->map_size);
-    if(pstate->elf_file)
+    if (pstate->elf_file)
         fclose(pstate->elf_file);
     free(pstate);
     printf("Exiting. status: %d\n", exitStatus);
@@ -238,5 +239,67 @@ bool isElfFile(void *map_ptr)
     else
     {
         return false;
+    }
+}
+
+void printSectionNames(state *pstate)
+{
+    if (pstate->map_size == 0)
+    {
+        printf("No file is loaded\n");
+        return;
+    }
+    int sh_num = pstate->header->e_shnum;
+    int sh_off = pstate->header->e_shoff;
+    int longest = 0, current = 0;
+    Elf32_Shdr *sh_arr = pstate->map_ptr + sh_off;
+    Elf32_Shdr *sh_strTableSh = &sh_arr[pstate->header->e_shstrndx];
+    char *sh_strTable = pstate->map_ptr + sh_strTableSh->sh_offset;
+    printDebug(pstate,
+               "-number of section headers: %d\n"
+               "-section headers offset: %d\n"
+               "-section header string tabel offset: %d\n",
+               sh_num, sh_off, sh_strTableSh->sh_offset);
+
+    for (int i = 0; i < sh_num; i++)
+    {
+        current = strlen(sh_strTable + sh_arr[i].sh_name);
+        if (current > longest)
+            longest = current;
+    }
+    printf("\nSECTION HEADERS:\n");
+    printf(" [Nr] %-*s %-8s %-6s %-6s  Type\n", longest, "Addr", "Off", "Size", "Name");
+    for (int i = 0; i < sh_num; i++)
+    {
+        printf(" [%2d] %-*s %08x %06x %06x  %s\n",
+               i, longest,
+               sh_strTable + sh_arr[i].sh_name,
+               sh_arr[i].sh_addr,
+               sh_arr[i].sh_offset,
+               sh_arr[i].sh_size,
+               getShTypeName(sh_arr[i].sh_type));
+    }
+}
+
+char *getShTypeName(Elf32_Word sh_type)
+{
+    if (sh_type <= 11)
+    {
+        char *types[12] = {"NULL", "PROGBITS", "SYMTAB", "STRTAB", "RELA", "HASH",
+                           "DYNAMIC", "NOTE", "NOBITS", "REL", "SHLIB", "DYNSYM"};
+        return types[sh_type];
+    }
+    switch (sh_type)
+    {
+    case SHT_LOPROC:
+        return "LOPROC";
+    case SHT_HIPROC:
+        return "HIPROC";
+    case SHT_LOUSER:
+        return "LOUSER";
+    case SHT_HIUSER:
+        return "HIUSER";
+    default:
+        return "UNKNOWN";
     }
 }
