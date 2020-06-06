@@ -13,8 +13,8 @@
 #define NULL_CHAR '\0'
 #define INITIAL_SIZE 5
 #define BUF_SIZE 128
-#define printDebug(state, ...)                                                     \
-    if (state->debug_mode)                                                         \
+#define printDebug(...)                                                            \
+    if (debug_mode)                                                                \
     {                                                                              \
         fprintf(stderr, "\nDEBUG PRINT:\n");                                       \
         fprintf(stderr, "####################################################\n"); \
@@ -24,65 +24,58 @@
 
 #define newline(stream) fprintf(stream, "\n");
 
-typedef struct state
-{
-    char debug_mode;
-    int page_size;
+char debug_mode;
+int page_size;
 
-    char file_name[BUF_SIZE];
-    FILE *elf_file;
-    void *map_ptr;
-    size_t map_size;
-    Elf32_Ehdr *header;
+char _file_name[BUF_SIZE];
+FILE *_elf_file;
+void *_map_ptr;
+size_t _map_size;
+Elf32_Ehdr *_header;
 
-    int ext_stat;
-} state;
+int _ext_stat;
 
 typedef struct fun_desc
 {
     char *desc;
-    void (*func)(state *);
+    void (*func)();
 } FunDesc;
 
-typedef struct PrintForm
-{
-    const char *format;
-    long data;
-} PrintForm;
-
+void initGlobals();
 bool menuRangeCheck(int index, int menu_size);
 void printMenu(FunDesc menu[]);
 void getInput(char *prompt, char *format, int length, char input[length]);
 FILE *tryfopen(char *filename, char *mode, char *errmsg);
 
-void toggelDebug(state *pstate);
-void examinElf(state *pstate);
-void printSectionNames(state *pstate);
-void printSymbols(state *pstate);
-void printReltabs(state *pstate);
-void quit(state *pstate);
+void toggelDebug();
+void examinElf();
+void printSectionNames();
+void printSymbols();
+void printReltabs();
+void quit();
 
-bool isElfFile(void *map_ptr);
-char *getEncoding(Elf32_Ehdr *header);
+bool isElfFile(void *_map_ptr);
+char *getEncoding();
 char *getShTypeName(Elf32_Word sh_type);
-Elf32_Shdr *getFirstShByType(Elf32_Ehdr *header, void *file_start, Elf32_Word type);
-Elf32_Shdr *getFirstShByTypeOff(Elf32_Ehdr *header, void *file_start, Elf32_Word type, int *offset);
-Elf32_Shdr *getShLink(Elf32_Ehdr *header, void *file_start, Elf32_Word sh_link);
-Elf32_Shdr *getShdrs(Elf32_Ehdr *header, void *file_start);
-int getLongestShName(Elf32_Ehdr *header, void *file_start, Elf32_Half shnum);
-Elf32_Shdr *getSh(Elf32_Ehdr *header, void *file_start, Elf32_Half ndx);
+Elf32_Shdr *getFirstShByType(Elf32_Word type);
+Elf32_Shdr *getFirstShByTypeOff(Elf32_Word type, int *offset);
+Elf32_Shdr *getShLink(Elf32_Word sh_link);
+Elf32_Shdr *getShdrs();
+int getLongestShName();
+Elf32_Shdr *getSh(Elf32_Half ndx);
 char *getSpecNdxName(Elf32_Section shndx);
-void *getSection(void *file_start, Elf32_Off sh_offset);
+void *getSection(Elf32_Off sh_offset);
 int getSecNEnt(Elf32_Shdr *sh);
-char *getSectionName(Elf32_Ehdr *header, void *file_start, Elf32_Shdr *sh);
-char *getSymbolName(Elf32_Ehdr *header, void *file_start, Elf32_Sym *symb);
+char *getSectionName(Elf32_Shdr *sh);
+Elf32_Sym *getSymbol(Elf32_Half ndx, Elf32_Word tabType);
+char *getSymbolName(Elf32_Sym *symbol, Elf32_Word tabType);
+char *getRelTypeName(unsigned char type);
 
 int main(int argc, char **argv)
 {
     int funcIndex = 0, menuSize = 0;
     char input[BUF_SIZE];
-    state *pstate = (calloc(1, sizeof(state)));
-    pstate->page_size = sysconf(_SC_PAGE_SIZE);
+    initGlobals();
     FunDesc menu[] = {{"Toggle Degbug Mode", toggelDebug},
                       {"Examin ELF File", examinElf},
                       {"Print Section Names", printSectionNames},
@@ -97,11 +90,9 @@ int main(int argc, char **argv)
     }
     while (true)
     {
-        printDebug(pstate,
-                   "-page_size: %d\n-file_name: %s\n-map_size: %zd\n",
-                   pstate->page_size,
-                   pstate->file_name,
-                   pstate->map_size);
+        printDebug("-_file_name: %s\n-_map_size: %zd\n",
+                   _file_name,
+                   _map_size);
         printMenu(menu);
 
         getInput("Please choose an action by number: ", "%s", BUF_SIZE, input);
@@ -109,17 +100,28 @@ int main(int argc, char **argv)
         newline(stdin);
         if (menuRangeCheck(funcIndex, menuSize))
         {
-            (*menu[funcIndex].func)(pstate);
+            (*menu[funcIndex].func)();
         }
         else
         {
             printf("Not within Bounds\n");
-            pstate->ext_stat = 1;
-            (*quit)(pstate);
+            _ext_stat = 1;
+            (*quit)();
         }
     }
-    (*quit)(pstate);
+    (*quit)();
     return 0;
+}
+
+void initGlobals()
+{
+    _file_name[0] = 0;
+    _elf_file = NULL;
+    _map_ptr = NULL;
+    _map_size = 0;
+    _header = NULL;
+
+    _ext_stat = 0;
 }
 
 bool menuRangeCheck(int index, int menu_size)
@@ -138,48 +140,48 @@ void printMenu(FunDesc menu[])
     printf("----------------------------------------------------\n");
 }
 
-void toggelDebug(state *pstate)
+void toggelDebug()
 {
-    pstate->debug_mode = ~pstate->debug_mode;
-    pstate->debug_mode ? puts("Debug flag now on, printing debug messages") : puts("Debug flag now off, you're on your own");
+    debug_mode = ~debug_mode;
+    debug_mode ? puts("Debug flag now on, printing debug messages") : puts("Debug flag now off, you're on your own");
 }
 
-void examinElf(state *pstate)
+void examinElf()
 {
     FILE *file = NULL;
     struct stat file_stat;
-    getInput("Please input file name: ", "%s", BUF_SIZE, pstate->file_name);
-    if (!(file = tryfopen(pstate->file_name, "r+", "examin elf file")))
+    getInput("Please input file name: ", "%s", BUF_SIZE, _file_name);
+    if (!(file = tryfopen(_file_name, "r+", "examin elf file")))
         return;
     if (fstat(file->_fileno, &file_stat) != 0)
     {
         fclose(file);
-        pstate->file_name[0] = 0;
+        _file_name[0] = 0;
         perror("stat failed");
         return;
     }
-    pstate->map_ptr = mmap(NULL, file_stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, file->_fileno, 0);
-    if (pstate->map_ptr < 0)
+    _map_ptr = mmap(NULL, file_stat.st_size, PROT_READ | PROT_WRITE, MAP_SHARED, file->_fileno, 0);
+    if (_map_ptr < 0)
     {
         fclose(file);
-        pstate->file_name[0] = 0;
+        _file_name[0] = 0;
         perror("examin elf file");
         return;
     }
-    pstate->map_size = file_stat.st_size;
-    printf("File magic number: %.4s\n", (char *)(pstate->map_ptr));
-    if (!isElfFile(pstate->map_ptr))
+    _map_size = file_stat.st_size;
+    printf("File magic number: %.4s\n", (char *)(_map_ptr));
+    if (!isElfFile(_map_ptr))
     {
         fclose(file);
-        munmap(pstate->map_ptr, pstate->map_size);
-        pstate->map_size = 0;
-        pstate->file_name[0] = 0;
+        munmap(_map_ptr, _map_size);
+        _map_size = 0;
+        _file_name[0] = 0;
         printf("Invalid file sh_type\n");
         return;
     }
 
-    pstate->elf_file = file;
-    pstate->header = (Elf32_Ehdr *)pstate->map_ptr;
+    _elf_file = file;
+    _header = (Elf32_Ehdr *)_map_ptr;
     printf("\nELF HEADER:\n"
            "  MAGIC:                      %.4s\n"
            "  Data:                       %s\n"
@@ -190,26 +192,25 @@ void examinElf(state *pstate)
            "  Start of program headers:   %u\n"
            "  Number of program headers:  %hu\n"
            "  Size of program headers:    %hu (bytes)\n",
-           pstate->header->e_ident,
-           getEncoding(pstate->header),
-           pstate->header->e_entry,
-           pstate->header->e_shoff,
-           pstate->header->e_shnum,
-           pstate->header->e_shentsize,
-           pstate->header->e_phoff,
-           pstate->header->e_phnum,
-           pstate->header->e_phentsize);
+           _header->e_ident,
+           getEncoding(_header),
+           _header->e_entry,
+           _header->e_shoff,
+           _header->e_shnum,
+           _header->e_shentsize,
+           _header->e_phoff,
+           _header->e_phnum,
+           _header->e_phentsize);
 }
 
-void printSectionNames(state *pstate)
+void printSectionNames()
 {
-    if (pstate->map_size == 0)
+    if (_map_size == 0)
     {
         printf("No file loaded\n");
         return;
     }
-    Elf32_Half shnum = pstate->header->e_shnum;
-    int longest = getLongestShName(pstate->header, pstate->map_ptr, shnum);
+    int longest = getLongestShName();
 
     Elf32_Shdr *sh = NULL;
     char *secName = NULL;
@@ -217,10 +218,10 @@ void printSectionNames(state *pstate)
 
     printf("\nSECTION HEADERS:\n");
     printf(" [Nr] %-*s %-8s %-6s %-6s  Type\n", longest, "Addr", "Off", "Size", "Name");
-    for (int i = 0; i < shnum; i++)
+    for (int i = 0; i < _header->e_shnum; i++)
     {
-        sh = getSh(pstate->header, pstate->map_ptr, i);
-        secName = getSectionName(pstate->header, pstate->map_ptr, sh);
+        sh = getSh(i);
+        secName = getSectionName(sh);
         typeName = getShTypeName(sh->sh_type);
         printf(" [%2d] %-*s %08x %06x %06x  %s\n",
                i, longest,
@@ -232,22 +233,15 @@ void printSectionNames(state *pstate)
     }
 }
 
-void printSymbols(state *pstate)
+void printSymbols()
 {
-    if (pstate->map_size == 0)
+    if (_map_size == 0)
     {
         printf("No file loaded\n");
         return;
     }
 
-    Elf32_Shdr *symtabSh = getFirstShByType(pstate->header, pstate->map_ptr, SHT_SYMTAB);
-    if (!symtabSh)
-    {
-        printf("Invalid ELF: no symbol table found");
-        return;
-    }
-    Elf32_Sym *symtab = getSection(pstate->map_ptr, symtabSh->sh_offset);
-    int longest = getLongestShName(pstate->header, pstate->map_ptr, pstate->header->e_shnum);
+    int longest = getLongestShName();
 
     char *secName = NULL;
     char *symName = NULL;
@@ -255,14 +249,20 @@ void printSymbols(state *pstate)
     Elf32_Sym *symbol = NULL;
     Elf32_Section shndx = 0;
 
+    Elf32_Shdr *symtabSh = getFirstShByType(SHT_SYMTAB);
+    if (!symtabSh)
+    {
+        printf("Invalid ELF: no symbol table found");
+        return;
+    }
     int symnum = getSecNEnt(symtabSh);
     printf("\nSYMBOL TABLE:\n");
     printf("  Num: %8s  Ndx %-*s Name\n", "Value", longest, "Section");
     for (int i = 0; i < symnum; i++)
     {
-        symbol = &symtab[i];
+        symbol = getSymbol(i, SHT_SYMTAB);
         shndx = symbol->st_shndx;
-        symName = getSymbolName(pstate->header, pstate->map_ptr, symbol);
+        symName = getSymbolName(symbol, SHT_SYMTAB);
         if (shndx == SHN_ABS || shndx == SHN_UNDEF)
         {
             secName = "";
@@ -271,48 +271,51 @@ void printSymbols(state *pstate)
         }
         else
         {
-            sh = getSh(pstate->header, pstate->map_ptr, shndx);
-            secName = getSectionName(pstate->header, pstate->map_ptr, sh);
+            sh = getSh(shndx);
+            secName = getSectionName(sh);
             printf("  %3d: %08x  %3d %-*s %s\n",
                    i, symbol->st_value, shndx, longest, secName, symName);
         }
     }
 }
 
-void printReltabs(state *pstate)
+void printReltabs()
 {
-    if (pstate->map_size == 0)
+    if (_map_size == 0)
     {
         printf("No file loaded\n");
         return;
     }
 
     int secOff = 0;
-
-    Elf32_Shdr *reltabSh = getFirstShByTypeOff(pstate->header, pstate->map_ptr, SHT_REL, &secOff);
+    Elf32_Shdr *reltabSh = getFirstShByTypeOff(SHT_REL, &secOff);
     Elf32_Rel *reltab = NULL;
     int relnum = 0;
+    Elf32_Word relInfo = 0;
+    Elf32_Word relOff = 0;
     while (reltabSh)
     {
-        reltab = getSection(pstate->map_ptr, reltabSh->sh_offset);
+        reltab = getSection(reltabSh->sh_offset);
         relnum = getSecNEnt(reltabSh);
-        printf(" Offset     Info\n");
+        printf("\n Offset     Info\n");
         for (int i = 0; i < relnum; i++)
         {
-            printf("%08x  %08x\n", reltab[i].r_offset, reltab[i].r_info);
+            relInfo = reltab[i].r_info;
+            relOff = reltab[i].r_offset;
+            printf("%08x  %08x\n",
+                   relOff, relInfo);
         }
-        reltabSh = getFirstShByTypeOff(pstate->header, pstate->map_ptr, SHT_REL, &secOff);
+        reltabSh = getFirstShByTypeOff(SHT_REL, &secOff);
     }
 }
 
-void quit(state *pstate)
+void quit()
 {
-    int exitStatus = pstate->ext_stat;
-    if (pstate->map_size > 0)
-        munmap(pstate->map_ptr, pstate->map_size);
-    if (pstate->elf_file)
-        fclose(pstate->elf_file);
-    free(pstate);
+    int exitStatus =_ext_stat;
+    if (_map_size > 0)
+        munmap(_map_ptr, _map_size);
+    if (_elf_file)
+        fclose(_elf_file);
     printf("Exiting. status: %d\n", exitStatus);
     exit(exitStatus);
 }
@@ -339,19 +342,19 @@ FILE *tryfopen(char *filename, char *mode, char *errmsg)
     return file;
 }
 
-/*Returns a string representing the encoding of the ELF file with `header`*/
-char *getEncoding(Elf32_Ehdr *header)
+/*Returns a string representing the encoding of the ELF file with `_header`*/
+char *getEncoding()
 {
     char *encodings[3] = {"Invalid encoding",
                           "2's complement, little endian",
                           "2's complement, big endian"};
-    return encodings[header->e_ident[5]];
+    return encodings[_header->e_ident[5]];
 }
 
 /*Checks if geven mapping is of an ELF file*/
-bool isElfFile(void *map_ptr)
+bool isElfFile(void *_map_ptr)
 {
-    if (memcmp(map_ptr + 1, "ELF", 3) == 0)
+    if (memcmp(_map_ptr + 1, "ELF", 3) == 0)
     {
         return true;
     }
@@ -386,19 +389,19 @@ char *getShTypeName(Elf32_Word sh_type)
 }
 
 /*Returns the first section with sh_type `type`, if it exists, NULL otherwise*/
-Elf32_Shdr *getFirstShByType(Elf32_Ehdr *header, void *file_start, Elf32_Word type)
+Elf32_Shdr *getFirstShByType(Elf32_Word type)
 {
-    int ndx = 0;
-    return getFirstShByTypeOff(header, file_start, type, &ndx);
+    int pass = 0;
+    return getFirstShByTypeOff(type, &pass);
 }
 
-/*Starting at number in `offset`, returns the first section header with sh_type `type` if it exists, NULL otherwise.
-If this function finds a suitable section header, it sets the number in `offset` to the next index after the found sectoin header, 
+/*Starting at number in `offset`, returns the first section _header with sh_type `type` if it exists, NULL otherwise.
+If this function finds a suitable section _header, it sets the number in `offset` to the next index after the found sectoin _header, 
 othewise it sets it to -1*/
-Elf32_Shdr *getFirstShByTypeOff(Elf32_Ehdr *header, void *file_start, Elf32_Word type, int *offset)
+Elf32_Shdr *getFirstShByTypeOff(Elf32_Word type, int *offset)
 {
-    Elf32_Half shnum = header->e_shnum;
-    Elf32_Shdr *sh_arr = getShdrs(header, file_start);
+    Elf32_Half shnum = _header->e_shnum;
+    Elf32_Shdr *sh_arr = getShdrs(_header, _map_ptr);
     Elf32_Shdr *sh;
     for (int i = *offset; i < shnum; i++)
     {
@@ -414,29 +417,29 @@ Elf32_Shdr *getFirstShByTypeOff(Elf32_Ehdr *header, void *file_start, Elf32_Word
 }
 
 /*Returns given link from the file sections headers*/
-Elf32_Shdr *getShLink(Elf32_Ehdr *header, void *file_start, Elf32_Word sh_link)
+Elf32_Shdr *getShLink(Elf32_Word sh_link)
 {
-    Elf32_Shdr *sh_arr = getShdrs(header, file_start);
+    Elf32_Shdr *sh_arr = getShdrs();
     return &sh_arr[sh_link];
 }
 
-/*Returns the section headers of file with `header`*/
-Elf32_Shdr *getShdrs(Elf32_Ehdr *header, void *file_start)
+/*Returns the section headers of file with `_header`*/
+Elf32_Shdr *getShdrs()
 {
-    Elf32_Off shoff = header->e_shoff;
-    return file_start + shoff;
+    Elf32_Off shoff = _header->e_shoff;
+    return _map_ptr + shoff;
 }
 
 /*Calculates and returns the length of the longest section name in `sh_arr`*/
-int getLongestShName(Elf32_Ehdr *header, void *file_start, Elf32_Half shnum)
+int getLongestShName()
 {
-    Elf32_Shdr *sh_strtabSh = getSh(header, file_start, header->e_shstrndx);
-    char *sh_strtab = getSection(file_start, sh_strtabSh->sh_offset);
-    Elf32_Shdr *sh_arr = getShdrs(header, file_start);
+    Elf32_Shdr *sh_strtabSh = getSh(_header->e_shstrndx);
+    char *sh_strtab = getSection(sh_strtabSh->sh_offset);
+    Elf32_Shdr *sh_arr = getShdrs();
     int longest = 0, current = 0;
     Elf32_Shdr *sh;
     char *secName;
-    for (int i = 0; i < shnum; i++)
+    for (int i = 0; i < _header->e_shnum; i++)
     {
         sh = &sh_arr[i];
         secName = &sh_strtab[sh->sh_name];
@@ -447,10 +450,10 @@ int getLongestShName(Elf32_Ehdr *header, void *file_start, Elf32_Half shnum)
     return longest;
 }
 
-/*Returns the section header with index `ndx` in the file with `header`*/
-Elf32_Shdr *getSh(Elf32_Ehdr *header, void *file_start, Elf32_Half ndx)
+/*Returns the section _header with index `ndx` in the file with `_header`*/
+Elf32_Shdr *getSh(Elf32_Half ndx)
 {
-    return &getShdrs(header, file_start)[ndx];
+    return &getShdrs()[ndx];
 }
 
 /*Returns the name of special index `shndx`*/
@@ -468,33 +471,56 @@ char *getSpecNdxName(Elf32_Section shndx)
 }
 
 /*Returns the section at `sh_offset` in file*/
-void *getSection(void *file_start, Elf32_Off sh_offset)
+void *getSection(Elf32_Off sh_offset)
 {
-    return file_start + sh_offset;
+    return _map_ptr + sh_offset;
 }
-/*Returns amount of entrys in section with header `sh`*/
+/*Returns amount of entrys in section with _header `sh`*/
 int getSecNEnt(Elf32_Shdr *sh)
 {
     return sh->sh_size / sh->sh_entsize;
 }
 
-/*Return the section name with header `sh`*/
-char *getSectionName(Elf32_Ehdr *header, void *file_start, Elf32_Shdr *sh)
+/*Return the section name with _header `sh`*/
+char *getSectionName(Elf32_Shdr *sh)
 {
-    Elf32_Shdr *sh_strtabSh = getSh(header, file_start, header->e_shstrndx);
-    char *sh_strtab = getSection(file_start, sh_strtabSh->sh_offset);
+    Elf32_Shdr *sh_strtabSh = getSh(_header->e_shstrndx);
+    char *sh_strtab = getSection(sh_strtabSh->sh_offset);
     return &sh_strtab[sh->sh_name];
 }
-/*Returns the name of `symbol`. If there is no symbol table returns NULL*/
-char *getSymbolName(Elf32_Ehdr *header, void *file_start, Elf32_Sym *symbol)
+
+/*Returns the symbol with index `ndx` from symbol table with type `tabType`*/
+Elf32_Sym *getSymbol(Elf32_Half ndx, Elf32_Word tabType)
 {
-    Elf32_Shdr *symtabSh = getFirstShByType(header, file_start, SHT_SYMTAB);
+    Elf32_Shdr *symtabSh = getFirstShByType(tabType);
     if (!symtabSh)
     {
         printf("Invalid ELF: no symbol table found");
         return NULL;
     }
-    Elf32_Shdr *sym_strtabSh = getShLink(header, file_start, symtabSh->sh_link);
-    char *sym_strtab = getSection(file_start, sym_strtabSh->sh_offset);
+    Elf32_Sym *symtab = getSection(symtabSh->sh_offset);
+    return &symtab[ndx];
+}
+
+/*Returns the name of `symbol`. If there is no symbol table returns NULL*/
+char *getSymbolName(Elf32_Sym *symbol, Elf32_Word tabType)
+{
+    Elf32_Shdr *symtabSh = getFirstShByType(tabType);
+    if (!symtabSh)
+    {
+        printf("Invalid ELF: no symbol table found");
+        return NULL;
+    }
+    Elf32_Shdr *sym_strtabSh = getShLink(symtabSh->sh_link);
+    char *sym_strtab = getSection(sym_strtabSh->sh_offset);
     return &sym_strtab[symbol->st_name];
+}
+
+/*Returns the type name of the relocation type*/
+char *getRelTypeName(unsigned char type)
+{
+    char *relTypes[] = {"R_386_NONE", "R_386_32", "R_386_PC32", "R_386_GOT32",
+                        "R_386_PLT32", "R_386_COPY", "R_386_GLOB_DAT", "R_386_JMP_SLOT",
+                        "R_386_RELATIVE", "R_386_GOTOFF", "R_386_GOTPC"};
+    return relTypes[type];
 }

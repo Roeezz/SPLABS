@@ -191,8 +191,6 @@ void examinElf(state *pstate)
            pstate->header->e_phoff,
            pstate->header->e_phnum,
            pstate->header->e_phentsize);
-
-    fclose(file);
 }
 
 void quit(state *pstate)

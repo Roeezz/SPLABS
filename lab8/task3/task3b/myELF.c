@@ -201,8 +201,6 @@ void examinElf(state *pstate)
            pstate->header->e_phoff,
            pstate->header->e_phnum,
            pstate->header->e_phentsize);
-
-    fclose(file);
 }
 
 void printSectionNames(state *pstate)
@@ -505,6 +503,7 @@ char *getSectionName(Elf32_Ehdr *header, void *file_start, Elf32_Shdr *sh)
     return &sh_strtab[sh->sh_name];
 }
 
+/*Returns the symbol with index `ndx` from symbol table with type `tabType`*/
 Elf32_Sym *getSymbol(Elf32_Ehdr *header, void *file_start, Elf32_Half ndx, Elf32_Word tabType)
 {
     Elf32_Shdr *symtabSh = getFirstShByType(header, file_start, tabType);
@@ -531,6 +530,7 @@ char *getSymbolName(Elf32_Ehdr *header, void *file_start, Elf32_Sym *symbol, Elf
     return &sym_strtab[symbol->st_name];
 }
 
+/*Returns the type name of the relocation type*/
 char *getRelTypeName(unsigned char type)
 {
     char *relTypes[] = {"R_386_NONE", "R_386_32", "R_386_PC32", "R_386_GOT32",
