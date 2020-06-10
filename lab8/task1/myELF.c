@@ -207,15 +207,15 @@ void printSectionNames()
     char *typeName = NULL;
 
     printf("\nSECTION HEADERS:\n");
-    printf(" [Nr] %-*s %-8s %-6s %-6s  Type\n", longest, "Addr", "Off", "Size", "Name");
+    printf(" [Nr] %-*s %-8s %-6s %-6s  Type\n", longest, "Name", "Addr", "Off", "Size");
     for (int i = 0; i < _header->e_shnum; i++)
     {
         sh = getSh(i);
         secName = getSectionName(sh);
         typeName = getShTypeName(sh->sh_type);
         printf(" [%2d] %-*s %08x %06x %06x  %s\n",
-               i, longest,
-               secName,
+               i,
+               longest, secName,
                sh->sh_addr,
                sh->sh_offset,
                sh->sh_size,

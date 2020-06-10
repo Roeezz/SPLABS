@@ -217,7 +217,7 @@ void printSectionNames()
     char *typeName = NULL;
 
     printf("\nSECTION HEADERS:\n");
-    printf(" [Nr] %-*s %-8s %-6s %-6s  Type\n", longest, "Addr", "Off", "Size", "Name");
+    printf(" [Nr] %-*s %-8s %-6s %-6s  Type\n", longest, "Name", "Addr", "Off", "Size");
     for (int i = 0; i < _header->e_shnum; i++)
     {
         sh = getSh(i);
@@ -250,19 +250,23 @@ void printSymbols()
     Elf32_Section shndx = 0;
 
     Elf32_Shdr *symtabSh = getFirstShByType(SHT_SYMTAB);
-    if (!symtabSh)
+    Elf32_Shdr *dymsymSh = getFirstShByType(SHT_DYNSYM);
+    if (!symtabSh || !dymsymSh)
     {
         printf("Invalid ELF: no symbol table found");
         return;
     }
+
     int symnum = getSecNEnt(symtabSh);
+    int range = symnum;
+    int tabtype = SHT_SYMTAB;
     printf("\nSYMBOL TABLE:\n");
     printf("  Num: %8s  Ndx %-*s Name\n", "Value", longest, "Section");
-    for (int i = 0; i < symnum; i++)
+    for (int i = 0; i < range; i++)
     {
-        symbol = getSymbol(i, SHT_SYMTAB);
+        symbol = getSymbol(i, tabtype);
         shndx = symbol->st_shndx;
-        symName = getSymbolName(symbol, SHT_SYMTAB);
+        symName = getSymbolName(symbol, tabtype);
         if (shndx == SHN_ABS || shndx == SHN_UNDEF)
         {
             secName = "";
@@ -275,6 +279,13 @@ void printSymbols()
             secName = getSectionName(sh);
             printf("  %3d: %08x  %3d %-*s %s\n",
                    i, symbol->st_value, shndx, longest, secName, symName);
+        }
+        if(i == symnum - 1){
+            range = getSecNEnt(dymsymSh);
+            i = 0;
+            tabtype = SHT_DYNSYM;
+            printf("\nDYNAMIC SYMBOLS:\n");
+            printf("  Num: %8s  Ndx %-*s Name\n", "Value", longest, "Section");
         }
     }
 }
