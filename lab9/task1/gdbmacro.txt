@@ -1,4 +1,0 @@
-gdb ./virus.bin
-set disassembly-flavor intel
-layout regs
-b _start
