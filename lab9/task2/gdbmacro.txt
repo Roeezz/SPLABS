@@ -1,0 +1,4 @@
+gdb ./test
+set disassembly-flavor intel
+layout asm
+b *0x804829e
