@@ -1,4 +1,4 @@
-gdb ./test
+gdb ./virus.bin
 set disassembly-flavor intel
 layout asm
-b *0x804829e
+b modify_file_size

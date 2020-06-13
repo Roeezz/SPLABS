@@ -7,7 +7,7 @@
 #define SIG_SIZ_LEN 2
 #define VIR_NAM_LEN 16
 #define BUF_SIZE 50
-#define FILE_BUF_SIZE 10 * 1000
+#define FILE_BUF_SIZE 10000
 #define IND_OFFSET 1
 
 typedef struct VIRUS
@@ -238,7 +238,7 @@ void detect_virus(char *buffer, unsigned int size, LINK *virus_list)
 		while (curLink != NULL)
 		{
 			curVirus = curLink->vir;
-			if (i + curVirus->sigSize < size && memcmp(buffer + i, curVirus->sig, curVirus->sigSize) == 0)
+			if (i + curVirus->sigSize <= size && memcmp(buffer + i, curVirus->sig, curVirus->sigSize) == 0)
 			{
 				printDetection(i, curVirus);
 			}

